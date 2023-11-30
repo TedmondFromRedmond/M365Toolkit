@@ -1,0 +1,14 @@
+csv INPUT files read into an object in your script with
+one header row and one data row will be missing methods and properties.
+
+e.g. The count property is missing.
+This is what I did to work around the issue.
+
+# Check if the Count property exists, and add it if not then Add Count property!
+$csvdata=import-csv c:\temp\i.csv
+
+if (-not $csvData | Get-Member -MemberType NoteProperty -Name Count) {
+    $count = ($csvData | Measure-Object).Count
+    $csvData | Add-Member -NotePropertyName Count -NotePropertyValue $count
+}
+
