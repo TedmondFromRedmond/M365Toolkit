@@ -1,4 +1,13 @@
 <#
+
+Author: Professor POSH
+https://gptsdex.com/g/professor-powershell-posh
+
+#>
+
+
+
+<#
 To export Teams chat using eDiscovery with PowerShell, you need to use the Security & Compliance Center PowerShell module. Before running the script, ensure you have the necessary permissions in the Security & Compliance Center to perform eDiscovery tasks.
 
 Here's an outline of the steps you'll follow in PowerShell:
