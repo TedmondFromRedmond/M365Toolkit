@@ -1,0 +1,16 @@
+PowerShell Standards by TFR aka Tedmond Lasseter
+
+
+Standards for Functions are:
+1. Comments of #---- should appear before and after function
+2. names of functions should start with prefix fn_
+
+Standards for Variables are:
+1. Parameters for the script should start with prefix of p
+2. Global variables should start with prefix of GBL_
+3. Variables in functions should start with fn_IF_
+4. Script variables that are NOT in a function should start with prefix s_
+5. write-host cmdlets are replaced with write-host in the syntax
+6. if an EXIT cmdlet is in the powershell script, Professor Posh will mark with the comment of "## STOP Run ##" before and after the word EXIT
+
+Professor POSH will use these standards when asked to refactor code
