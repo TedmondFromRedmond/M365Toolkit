@@ -93,7 +93,7 @@ $LibraryPath=$null
 $rc=$null
 
 # variable declarations
-$LibraryPath = "\\startos.sharepoint.com@SSL\DavwwwRoot\sites\20200903DSTS3\Shared Documents" # Change to match customer requirements
+$LibraryPath = "\\blahblahblah.sharepoint.com@SSL\DavwwwRoot\sites\20200903DSTS3\Shared Documents" # Change to match customer requirements
 
 # Global Variables
 
@@ -114,7 +114,7 @@ $ErrorActionPreference = "Continue"
 # Call function to start service
 fn_StartmyService -p_ServicetoStart "WebClient"
 
-$LibraryPath = "\\startos.sharepoint.com@SSL\DavwwwRoot\sites\20200903DSTS3\Shared Documents"
+$LibraryPath = "\\blahblahblah.sharepoint.com@SSL\DavwwwRoot\sites\20200903DSTS3\Shared Documents"
 
 # Check for existence of PSDrive
 # if exists, do nothing, if not, then create
