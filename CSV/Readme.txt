@@ -6,5 +6,5 @@ To Use:
 3) unzip all files into the directory
 4) SL c:\myPOSH
 5) validate the CSV file named SampleCSVInput.csv is in the directory
-6) Open the chgline.ps1 source file
+6) Open the TeamplateCSV.ps1 source file
 7) Execute powershell
