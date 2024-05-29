@@ -2,6 +2,7 @@
 function fn_ChangeLine {
 <#
 .Synopsis
+Script to change values in files. Good for pipelines that have dev and prod variables.
 
 .Description
 This function reads a specified CSV or TXT file line by line, searches for a specified string, 
