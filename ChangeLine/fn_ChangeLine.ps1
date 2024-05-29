@@ -18,6 +18,7 @@ fn_ChangeLine -p_InputFile "path_to_inputfile.txt" -p_b4Change "old_value" -p_Af
 fn_ChangeLine -p_InputFile "path_to_inputfile.ini" -p_b4Change "old_value" -p_AfterChange "new_value" -p_OutputFile "path_to_outputfile.ini"
 fn_ChangeLine -p_InputFile "path_to_inputfile.ini" -p_b4Change "`myspecialchar" -p_AfterChange "`" -p_OutputFile "path_to_outputfile.ini"
 
+.Notes
 --------------------------------------------
 Modification History:
 Date    | Initials-Description of change
