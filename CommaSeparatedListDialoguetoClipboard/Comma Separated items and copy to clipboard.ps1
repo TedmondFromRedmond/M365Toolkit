@@ -8,6 +8,7 @@
 
 .NOTES
     Author: 2023-09-12 TFR - TedmondFromRedmond https://www.github.com/TedmondFromRedmond
+    Note: Special credit is given to dtammam, Dean Tammam. https://github.com/dtammam/
     2024-05-27 - TFR Updated script to work with hotkeys such as Alt+C for Comma separated, Alt+S for Semicolons; Alt+A for Apply, Alt+X for Exit 
     2024-05-27 - TFR Updated script to not add a zero length value and removed extraneous delimiters if necessary; moved buttons and checkboxes to left of screen
     2024-05-28 - TFR added custom values on form; added hotkeys with alt button accessible in upper and lowercase
