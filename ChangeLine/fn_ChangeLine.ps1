@@ -1,82 +1,146 @@
-#-------------------------------------------------------------------------------------------------------------------------------------------
 function fn_ChangeLine {
-<#
-.Synopsis
-Script to change values in files. Good for pipelines that have dev and prod variables.
+    <#
+    .SYNOPSIS
+        Changes specific values in a file, useful for pipelines with dev and prod configurations.
+    
+    .DESCRIPTION
+        Reads a specified CSV, TXT, or INI file line by line, searches for a given string, and replaces it with another string.
+        Supports case sensitivity based on an optional parameter.
+        Displays changes made to the console and writes the updated content to a specified output file.
+        Provides a summary of the total changes or indicates no changes were found.
+    
+    .PARAMETER p_InputFile
+        Path to the input file to be processed.
+    
+    .PARAMETER p_b4Change
+        String to search for in the input file.
+    
+    .PARAMETER p_AfterChange
+        String to replace the search string with.
+    
+    .PARAMETER p_OutputFile
+        Path to the output file where updated content will be written.
+    
+    .PARAMETER p_CaseSensitive
+        Optional. Indicates whether the replacement should be case-sensitive. Default is `$false` (case-insensitive).
+    
+    .EXAMPLE
+        fn_ChangeLine -p_InputFile "path_to_inputfile.csv" -p_b4Change "Dev" -p_AfterChange "Prod" -p_OutputFile "path_to_outputfile.csv" -p_CaseSensitive $true
+        This replaces "Dev" with "Prod" in a case-sensitive manner.
+    
+    .EXAMPLE
+        fn_ChangeLine -p_InputFile "path_to_inputfile.csv" -p_b4Change "dev" -p_AfterChange "prod" -p_OutputFile "path_to_outputfile.csv"
+        This replaces "dev" with "prod" in a case-insensitive manner.
+ 
+    .EXAMPLE
+        fn_ChangeLine -p_InputFile '.\SampleInputwithspecialchars.txt' -p_b4Change 'sunny' -p_AfterChange "SUNNY" -p_OutputFile ".\SampleOutputWithSpecialCharacters.txt"
+        finds the lowercase sunny and replaces it with capitlized SUNNY
 
-.Description
-This function reads a specified CSV or TXT file line by line, searches for a specified string, 
-and replaces it with another specified string. If a line is changed, it will display the change to the console. 
-After processing all lines, it will provide a summary of the total number of changes or state that no changes were found. 
-The entire file, including any changed lines, is then written to the specified output file.
+    .EXAMPLE
+        fn_ChangeLine -p_InputFile '.\SampleInputwithspecialchars.txt' -p_b4Change '`' -p_AfterChange "~" -p_OutputFile ".\SampleOutputWithSpecialCharacters.txt"
+        fn_ChangeLine -p_InputFile '.\SampleInputwithspecialchars.txt' -p_b4Change 'It`s' -p_AfterChange "~MRSunnydays" -p_OutputFile ".\SampleOutputWithSpecialCharacters.txt"
+        finds Backtick and replaces
 
-Note: It is important to note that special characters are supported 
+    .EXAMPLE
+        fn_ChangeLine -p_InputFile '.\SampleInputwithspecialchars.txt' -p_b4Change '\' -p_AfterChange 'ALLATHITS AND THAT' -p_OutputFile ".\SampleOutputWithSpecialCharacters.txt"
+        fn_ChangeLine -p_InputFile '.\SampleInputwithspecialchars.txt' -p_b4Change '\t' -p_AfterChange 'ALLATHITS AND THAT' -p_OutputFile ".\SampleOutputWithSpecialCharacters.txt"
+        fn_ChangeLine -p_InputFile '.\SampleInputwithspecialchars.txt' -p_b4Change 'n\tun' -p_AfterChange 'ALMOST SUPERBOWL TIME!!' -p_OutputFile ".\SampleOutputWithSpecialCharacters.txt"
+        finds \ and other escape characters and replaces
 
-Usage:
-fn_ChangeLine -p_InputFile "path_to_inputfile.csv" -p_b4Change "old_value" -p_AfterChange "new_value" -p_OutputFile "path_to_outputfile.csv"
-fn_ChangeLine -p_InputFile "path_to_inputfile.txt" -p_b4Change "old_value" -p_AfterChange "new_value" -p_OutputFile "path_to_outputfile.txt"
-fn_ChangeLine -p_InputFile "path_to_inputfile.ini" -p_b4Change "old_value" -p_AfterChange "new_value" -p_OutputFile "path_to_outputfile.ini"
-fn_ChangeLine -p_InputFile "path_to_inputfile.ini" -p_b4Change "`myspecialchar" -p_AfterChange "`" -p_OutputFile "path_to_outputfile.ini"
-
-.Notes
---------------------------------------------
-Modification History:
-Date    | Initials-Description of change
---------------------------------------------
-20231023| Maker - TFR
+    .EXAMPLE
+        fn_ChangeLine -p_InputFile '.\SampleInputwithspecialchars.txt' -p_b4Change '~n' -p_AfterChange '42' ".\SampleOutputWithSpecialCharacters.txt"
+        fn_ChangeLine -p_InputFile '.\SampleInputwithspecialchars.txt' -p_b4Change '~n ' -p_AfterChange "42 " ".\SampleOutputWithSpecialCharacters.txt"
+        Replace a ~n with a trailing space. Notice the space in the before and after parameters.
 
 
-#>
+.NOTES
+    Maker: TFR
+    Refactored: Professor POSH
 
-    param (
-        [Parameter(Mandatory=$true)]
-        [ValidateScript({
-            if (-not ($_ | Test-Path)) {
-                throw "File $_ does not exist."
-            } # end of if not test-path to see if input file exists.
-
-            return $true
-        })]
-        [string]$p_InputFile,
-
-        [Parameter(Mandatory=$true)]
-        [string]$p_b4Change,
-
-        [Parameter(Mandatory=$true)]
-        [string]$p_AfterChange,
-
-        [Parameter(Mandatory=$true)]
-        [string]$p_OutputFile
-    )
-
-    $changeCount = 0
-    $output = @()
-
-    # Read the content of the file
-    $content = Get-Content -Path $p_InputFile
-
-    foreach ($line in $content) {
-        if ($line -like "*$p_b4Change*") {
-            $changedLine = $line -replace [regex]::Escape($p_b4Change), $p_AfterChange
-            $output += $changedLine
-            Write-Output "Changed: $line -> $changedLine"
-            $changeCount++
-        } else {
-            $output += $line
-        } # end of if line like ...
-    } # end of foreach line in content
-
-    # Write the output to the specified file
-    $output | Set-Content -Path $p_OutputFile
-
-    if ($changeCount -gt 0) {
-        Write-Output "Total lines changed: $changeCount"
-    } else {
-        Write-Output "There were not any lines to change found. Zero lines were changed."
-    } # end of changecount gt 0
-
-} # End of fn_ChangeLine
-#-------------------------------------------------------------------------------------------------------------------------------------------
+    Modification History:
+    Date       | Initials  | Description
+    -----------|-----------|-------------------------------------
+    20231023   | TFR       | Initial creation
+    20231112   | POSH      | Refactored to align with standards
+    20250126   | TFR       | Added case sensitivity and special chars `, \, ~    
+    #>
+    
+        param (
+            [Parameter(Mandatory = $true)]
+            [ValidateScript({
+                if (-not (Test-Path $_)) {
+                    throw "File $_ does not exist."
+                }
+                return $true
+            })]
+            [string]$p_InputFile,
+    
+            [Parameter(Mandatory = $true)]
+            [string]$p_b4Change,
+    
+            [Parameter(Mandatory = $true)]
+            [string]$p_AfterChange,
+    
+            [Parameter(Mandatory = $true)]
+            [string]$p_OutputFile,
+    
+            [Parameter(Mandatory = $false)]
+            [bool]$p_CaseSensitive = $false
+        )
+    
+        # Initialize counters and output array
+        $changeCount = 0
+        $lineNumber = 1
+        $outputContent = @()
+    
+        try {
+            # Read the content of the input file
+            $content = Get-Content -Path $p_InputFile
+    
+            # Process each line
+            foreach ($line in $content) {
+                # Check case sensitivity
+                if ($p_CaseSensitive) {
+                    # Case-sensitive replacement
+                    if ($line.Contains($p_b4Change)) {
+                        $changedLine = $line -replace "$p_b4Change", $p_AfterChange
+                        $outputContent += $changedLine
+                        Write-Output "Line $lineNumber Changed '$line' -> '$changedLine'" -ForegroundColor Yellow
+                        $changeCount++
+                    } else {
+                        $outputContent += $line
+                    }
+                } else {
+                    # Case-insensitive replacement using (?i)
+                    $regex_b4Change = "(?i)" + [regex]::Escape($p_b4Change)
+                    if ($line -match $regex_b4Change) {
+                        $changedLine = $line -replace $regex_b4Change, $p_AfterChange
+                        $outputContent += $changedLine
+                        Write-Output "Line $lineNumber Changed '$line' -> '$changedLine'" -ForegroundColor Yellow
+                        $changeCount++
+                    } else {
+                        $outputContent += $line
+                    }
+                }
+                $lineNumber++
+            }
+    
+            # Write the updated content to the output file
+            $outputContent | Set-Content -Path $p_OutputFile
+    
+            # Display summary of changes
+            if ($changeCount -gt 0) {
+                Write-Host "Total lines changed: $changeCount" -ForegroundColor Green
+            } else {
+                Write-Host "No lines were changed." -ForegroundColor Cyan
+            }
+        }
+        catch {
+            Write-Error "Error processing the file: $_"
+        }
+    }
+    #---- End of fn_ChangeLine ----
+    
 
 
 
