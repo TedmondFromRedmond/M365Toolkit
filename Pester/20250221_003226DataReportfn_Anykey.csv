@@ -1,0 +1,6 @@
+"Name","Result","ExecutedAt","Passed","Skipped","Duration"
+"Test Case 1 - Call fn and create files then ck return","Passed","2/21/2025 12:32:29 AM","True","False","00:00:00.2148574"
+"Test Case 2 - Test fn_ListFilesAndValidateCount for incorrect number of files and it should error","Passed","2/21/2025 12:32:29 AM","True","False","00:00:00.0127337"
+"Test Case 3 - Test fn_ListFilesAndValidateCount for CORRECT number of files and it should COMPLETE WITHOUT ERROR","Passed","2/21/2025 12:32:29 AM","True","False","00:00:00.0145517"
+"Test Case 4 - Test invalid file count passed. should have returned and failed.","Passed","2/21/2025 12:32:29 AM","True","False","00:00:00.0215661"
+"Test Case 5 - Test of invalid parameter passed to function or null or blank.","Passed","2/21/2025 12:32:29 AM","True","False","00:00:00.0250374"
