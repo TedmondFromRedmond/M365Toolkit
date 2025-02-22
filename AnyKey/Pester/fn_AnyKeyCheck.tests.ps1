@@ -128,7 +128,8 @@ write-host $DataReportCSV
 # Export all tests to CSV with pscustom object
 $mytest.Tests | ForEach-Object {
         [PSCustomObject]@{
-            Name       = $_.Name
+            CallerScript = "fn_AnyKeyCheck.tests.ps1"
+            TestName   = $_.Name
             Result     = $_.Result
             ExecutedAt = $_.ExecutedAt
             Passed     = $_.Passed
