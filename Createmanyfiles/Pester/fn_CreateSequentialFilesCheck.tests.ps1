@@ -15,6 +15,9 @@ Optional parameter specifying the name of the test report file.
 
 .EXAMPLE
 .\Script.ps1 -p_MyTestDirectory "C:\Temp\Test" -p_My_ReportName "PesterReport.csv"
+
+.Notes:
+Author: TedmondFromRedmond
 #>
 
 param(
