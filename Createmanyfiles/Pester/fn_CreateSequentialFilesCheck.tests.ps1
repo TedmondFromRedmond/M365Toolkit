@@ -1,138 +1,133 @@
 <#
-# Purpose:
-# To execute a black box test for 1 or many tests.
-# Pester Test Script for function. aka, the calling or reader script.
-# This script calls a Pester script and interprets the script as Passed or Failed based upon a returned object after invoke-pester with -passthru parm
-# If one or many tests exist, the overall pass / fail is evaluated and written to the console and the Data Report file,
-# DataReport is generated with all test names, pass/fail, duration ...
+.SYNOPSIS
+This script calls a Pester test script and returns an object with the results.
+aka a caller script
 
-# Pester Folder structure of Framework:
-# Top level contains source code being tested
-# fn....ps1/Pester/Release # Used for final versions of Pester files
-# .../Pester/Dev # Used for dev and backups
-# e.g. Functions.Tests.ps1, [fn.Name].Tests.ps1, PesterTests.ps1 any other input files and test data are saved here. This directory is promoted to Source Control
+.DESCRIPTION
+- Runs a specified Pester test file and reports the results.
+- Stores the results in a CSV report for tracking test cases.
 
+.PARAMETER p_MyTestDirectory
+Optional parameter specifying the test directory.
 
-# How To use:
-# 1. In Main, modify varaiable $myTestDirectory to point to Test directory specified in step 2. 
-# 2. In Main, modify varaiable $DataReportCSV to the location of the Data Report Directory which is the output of the test cases and their pass/fail
+.PARAMETER p_My_ReportName
+Optional parameter specifying the name of the test report file.
 
-# Flow of script:
-# This script is called a reader/caller script and executes the fn_function.Tests.ps1 script.
-# Call and execute scriptname.tests.ps1 with correct pester parameters.
-# Pester object is returned.
-# Pester object is evaluated for pass or fail and action is taken based upon pass or fail.
-# Exports object data to csv for Data Reporting for each test case whether it is pass or fail.
+.EXAMPLE
+.\Script.ps1 -p_MyTestDirectory "C:\Temp\Test" -p_My_ReportName "PesterReport.csv"
 #>
-#######
-# Functions begin here
-#
+
+param(
+    [string]$p_MyTestDirectory,  # Optional parameter for the test directory path
+    [string]$p_My_ReportName     # Optional parameter for specifying the Pester report name
+)
+
+#-----------------------------------------------------------------------------------------------------------
+# Function: fn_DateandTimeStamp
 #-----------------------------------------------------------------------------------------------------------
 function fn_DateandTimeStamp {
     <#
     .SYNOPSIS
-    Generates a date and time stamp in a concatenated format.
-    
-    .DESCRIPTION
-    This function retrieves the current date and time, formatting it as "yyyyMMdd_HHmmss" for use in logs, filenames, or other timestamp needs.
-    
-    .Inputs
-    A file with characters to replace.
+    Generates a date and time stamp.
 
-    .Outputs
-    Returns Date and time in object format.
+    .DESCRIPTION
+    This function retrieves the current date and time, formatting it as "yyyyMMdd_HHmmss".
 
     .EXAMPLE
-    $My_DateAndTime = fn_DateandTimeStamp
-    Write-Host "Date and time concatenation is $GBL_DateAndTime"
-    # Output format example: 20250208_124532
+    $s_DateAndTime = fn_DateandTimeStamp
+    Write-Host "Date and time concatenation is $s_DateAndTime"
+    # Output example: 20250208_124532
     #>
     
-        # Get the current date and time
-        $fn_IF_CurrentDateTime = Get-Date -Format "yyyyMMdd_HHmmss"
-         
-        # Return the date and time stamp
-        # Write-Host "Date and Time Stamp Generated: $fn_IF_CurrentDateTime"
-        
-        Return $fn_IF_CurrentDateTime
-    } 
-#----
+    # Get the current date and time
+    $fn_IF_CurrentDateTime = Get-Date -Format "yyyyMMdd_HHmmss"
+    
+    # Return the formatted date-time
+    Return $fn_IF_CurrentDateTime
+}
+#-----------------------------------------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------------------------------------
+# MAIN SCRIPT EXECUTION
+#-----------------------------------------------------------------------------------------------------------
 
-# End of functions
-#########
-####
-# MAIN
-####
+# Set default test directory if the parameter is null or empty
+if ([string]::IsNullOrEmpty($p_MyTestDirectory)) {
+    $Global:GBL_TestDirectory = "C:\Temp\test\M365Toolkit\CreateManyFiles\Pester"
+} else {
+    $Global:GBL_TestDirectory = $p_MyTestDirectory 
+}
 
-# Date and Time
-$My_DateAndTime = fn_DateandTimeStamp
+# Set default report name
+if ([string]::IsNullOrEmpty($p_My_ReportName)) {
+    $Global:GBL_ReportName = "DataReport_fn_CreateSequentialFiles.csv"
+} else {
+    $Global:GBL_ReportName = $p_My_ReportName
+}
 
-# Initialize variables
-$MyPesterDirectory = 'C:\Temp\test\M365Toolkit\Createmanyfiles\Pester'
-$MyPesterTestFileCalled = 'C:\Temp\test\M365Toolkit\Createmanyfiles\Pester\fn_CreateSequentialFiles.tests.ps1'
-sl $MyPesterDirectory
+# Import Pester Module
+Import-Module Pester -PassThru
 
-# Specify the Test directory when you created the repro
-$MyOutputDir = "c:\temp"
+# Set timestamp
+$script:s_DateandTimeStamp = fn_DateandTimeStamp
 
-# Output file CSV file to create with Pester test results
-$DataReportCSV = $MyPesterDirectory + '\' + $My_DateAndTime + 'DataReportfn_Anykey.csv'
+# Define test file and output paths
+$script:s_PesterTestFile = "fn_CreateSequentialFiles.tests.ps1"
+Set-Location $Global:GBL_TestDirectory
 
+$script:s_OutputDir = $Global:GBL_TestDirectory
+$Global:GBL_DataReportCSV = "$script:s_OutputDir\$Global:GBL_ReportName"
 
-# Call the [scriptname].tests script
+$script:s_PesterTestFilePath = "$Global:GBL_TestDirectory\$script:s_PesterTestFile"
+
+#-----------------------------------------------------------------------------------------------------------
+# EXECUTE PESTER TESTS
+#-----------------------------------------------------------------------------------------------------------
 Write-Host "Starting test and calling Pester test script..." -ForegroundColor Green
 try {
-    # Failure to specify the invoke-pester and -passthru will leave the object blank
-    $mytest = Invoke-Pester $MyPesterTestFileCalled -passthru # Note: passthru is required if you want data in the object returned
-    Write-Host "scriptname executed successfully." -ForegroundColor Green
+    # Ensure test file exists before execution
+    if (-not (Test-Path $script:s_PesterTestFilePath)) {
+        Throw "Error: Pester test file not found at $script:s_PesterTestFilePath"
+    }
+
+    # Execute Pester tests and capture the result
+    $Global:GBL_PesterResult = Invoke-Pester $script:s_PesterTestFilePath -PassThru
+
+    Write-Host "Sub Script executed successfully: $script:s_PesterTestFilePath" -ForegroundColor Green
 }
 catch {
-    Write-Error "Error during execution $myPesterTestFile in directory $MyTestDirectory"
-    Exit
+    Write-Error "Execution error: $_"
+    Exit ## STOP Run ##
 }
-# End of Call the fn_AnyKey function
 
-# Used for Testing
-# Open output file for visual validation
-# Notepad.exe $testOutputFile
-# write-host "Displaying test results"
+#-----------------------------------------------------------------------------------------------------------
+# PROCESS TEST RESULTS
+#-----------------------------------------------------------------------------------------------------------
+if ($Global:GBL_PesterResult.Result -eq "Passed") {
+    Write-Host "Pester Passed. Promote code to Production."
+    Write-Host "Promote Release folder to production."
+    Write-Host "`nData Report: $Global:GBL_DataReportCSV"
+} else {
+    Write-Host "Failed validation. Stopping program. Writing report to:"
+    Write-Host "$Global:GBL_DataReportCSV"
+}
 
-# 
-if($mytest.result -eq "Passed"){
+#-----------------------------------------------------------------------------------------------------------
+# EXPORT TEST RESULTS TO CSV
+#-----------------------------------------------------------------------------------------------------------
+$Global:GBL_PesterResult.Tests | ForEach-Object {
+    [PSCustomObject]@{
+        CallerScript = "fn_CreateSequentialFilesCheck.tests.ps1"
+        TestName     = $_.Name
+        Result       = $_.Result
+        ExecutedAt   = $_.ExecutedAt
+        Passed       = $_.Passed
+        Skipped      = $_.Skipped
+        Duration     = $_.Duration
+    }
+} | Export-Csv -Path $Global:GBL_DataReportCSV -NoTypeInformation -Append
 
-write-host "Pester Passed. promote code to Prod "
-write-host "Need to promote Release folder to production."
-write-host ""
-write-host "Data Report: $datareportcsv"
-}else
-{
-write-host "Failed validation. Stopping program. Writing Report to:"
-write-host $DataReportCSV
-# Assume you've already invoked Pester, e.g.:
-# $mytest = Invoke-Pester -Path .\MyTests.Tests.ps1 -PassThru
-} # End of if pass or fail
-
-# Export all tests to CSV with pscustom object
-$mytest.Tests | ForEach-Object {
-        [PSCustomObject]@{
-            Name       = $_.Name
-            Result     = $_.Result
-            ExecutedAt = $_.ExecutedAt
-            Passed     = $_.Passed
-            Skipped    = $_.Skipped
-            Duration   = $_.Duration
-        }
-    } | Export-Csv -Path $DataReportCSV -NoTypeInformation -append
-
-# write-host $mytest
-# notepad.exe $DataReportCSV
-
-write-host "The End of Pester Testing."
-
-###############################
-
-
-
-
-
+#-----------------------------------------------------------------------------------------------------------
+# FINALIZE
+#-----------------------------------------------------------------------------------------------------------
+Write-Host "Pester testing completed. Report saved to: $Global:GBL_DataReportCSV"
