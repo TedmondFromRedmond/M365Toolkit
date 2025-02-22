@@ -1,4 +1,4 @@
-﻿function fn_CreateSequentialFiles {
+function fn_CreateSequentialFiles {
     <#
     #--------------------------------------------------------------
     # Function: fn_CreateSequentialFiles
@@ -22,18 +22,12 @@
     
     .NOTES
         Author: TedmondFromRedmond
-
-    # Returns:
-    # "Invalid file count."
-    #  "File creation completed."
-    
     #>
     
     param (
             [string]$p_DirectoryPath = ".",
             [int]$p_FileCount
         )
-
     
         # Validate that p_FileCount is greater than zero
         if ($p_FileCount -le 0) {
