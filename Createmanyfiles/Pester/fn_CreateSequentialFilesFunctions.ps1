@@ -1,82 +1,56 @@
-# Purpose: File is imported to a script to provide script specific functions for testing.
-# 
-# Insert Functions below
-#----
-#
-# Functions begin here
-#
-#--------
-
-Function fn_ListFilesAndValidateCount {
-    #--------------------------------------------------------------
-    # Function: fn_ListFilesAndValidateCount
-    #--------------------------------------------------------------
+function fn_CreateSequentialFiles {
     <#
+    #--------------------------------------------------------------
+    # Function: fn_CreateSequentialFiles
+    #--------------------------------------------------------------
     .SYNOPSIS
-        Testing function for pester. Lists all files in a specified directory and validates the file count.
+        Creates sequentially numbered text files in a specified directory.
     
     .DESCRIPTION
-        This function retrieves all files in a given directory and compares the count of files 
-        against a user-specified expected count. If the counts do not match, a message is 
-        displayed to the console and the function returns a message stating the actual count.
+        This function generates a user-defined number of empty text files.
+        The files will be named sequentially from File1.txt to FileX.txt.
+        It ensures the specified directory exists before creating the files.
     
     .PARAMETER p_DirectoryPath
-        The directory from which to list the files.
+        The directory where the files will be created. If not specified, the files will be created in the current directory.
     
-    .PARAMETER p_ExpectedFileCount
-        The expected number of files in the directory for validation.
+    .PARAMETER p_FileCount
+        The number of files to create. Must be greater than zero.
     
     .EXAMPLE
-        fn_ListFilesAndValidateCount -p_DirectoryPath "C:\Temp" -p_ExpectedFileCount 10
+        fn_CreateSequentialFiles -p_DirectoryPath "C:\MyFiles" -p_FileCount 50
     
     .NOTES
-    # Returns
-    # Output Directory does not exist.
-    # File count mismatch.
-    # File count created matches.
-    #-----------------
-    #Revision History:
-    #-----------------
-    #2025-02-20 | Added function to check count in directory
-    #2024-06-01 | Author: TedmondFromRedmond
-    
+        Author: TedmondFromRedmond
     #>
-    #
     
-        param (
-            [string]$p_DirectoryPath,
-            [int]$p_ExpectedFileCount
+    param (
+            [string]$p_DirectoryPath = ".",
+            [int]$p_FileCount
         )
+    
+        # Validate that p_FileCount is greater than zero
+        if ($p_FileCount -le 0) {
+            Write-Host "Error: The file count must be greater than zero."
+            return "Invalid file count."
+        }
     
         # Ensure the directory exists
         if (-not (Test-Path -Path $p_DirectoryPath)) {
-            Write-Host "Error: Directory '$p_DirectoryPath' not found."
-            return "Output Directory does not exist."
+            Write-Host "Directory not found. Creating directory: $p_DirectoryPath"
+            New-Item -Path $p_DirectoryPath -ItemType Directory | Out-Null
         }
     
-        # Retrieve files in the directory
-        $fn_IF_Files = Get-ChildItem -Path $p_DirectoryPath -File
-        $fn_IF_FileCount = $fn_IF_Files.Count
-    
-        # Display file count to console
-        Write-Host "Total files found in '$p_DirectoryPath': $fn_IF_FileCount"
-    
-        # Validate file count
-        if ($fn_IF_FileCount -ne $p_ExpectedFileCount) {
-            Write-Host "Warning: Expected $p_ExpectedFileCount files, but found $fn_IF_FileCount."
-            write-host "File count mismatch: Expected $p_ExpectedFileCount, Found $fn_IF_FileCount."
-            return "File count mismatch."
+        # Create specified number of files
+        1..$p_FileCount | ForEach-Object {
+            $fn_IF_FileName = "File$_.txt"
+            $fn_IF_FullPath = Join-Path $p_DirectoryPath $fn_IF_FileName
+            New-Item -Path $fn_IF_FullPath -ItemType File -Force | Out-Null
+            Write-Host "Created file: $fn_IF_FullPath"
         }
     
-        return "File count matches."
-    } # fn_ListFilesAndValidateCount
+        Write-Host "Successfully created $p_FileCount files in '$p_DirectoryPath'."
+        return "File creation completed."
+    }
     #--------------------------------------------------------------
-
-
-    # Replace with path to dot source your function
-. '..\fn_CreateSequentialFiles.ps1'
-
-
-
-    
     
