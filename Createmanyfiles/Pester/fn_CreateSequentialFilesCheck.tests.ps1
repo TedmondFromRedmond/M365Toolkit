@@ -121,6 +121,7 @@ if ($Global:GBL_PesterResult.Result -eq "Passed") {
 # EXPORT TEST RESULTS TO CSV
 #-----------------------------------------------------------------------------------------------------------
 try{
+    
 $Global:GBL_PesterResult.Tests | ForEach-Object {
     [PSCustomObject]@{
         CallerScript = "fn_CreateSequentialFilesCheck.tests.ps1"
