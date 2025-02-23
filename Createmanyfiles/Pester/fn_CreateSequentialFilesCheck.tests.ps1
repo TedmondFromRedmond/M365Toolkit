@@ -18,6 +18,7 @@ Optional parameter specifying the name of the test report file.
 
 .Notes:
 Author: TedmondFromRedmond
+20220223 - Added report functionality and error reporting.
 #>
 
 param(
@@ -86,6 +87,7 @@ $script:s_PesterTestFilePath = "$Global:GBL_TestDirectory\$script:s_PesterTestFi
 #-----------------------------------------------------------------------------------------------------------
 # EXECUTE PESTER TESTS
 #-----------------------------------------------------------------------------------------------------------
+
 Write-Host "Starting test and calling Pester test script..." -ForegroundColor Green
 try {
     # Ensure test file exists before execution
@@ -96,7 +98,7 @@ try {
     # Execute Pester tests and capture the result
     $Global:GBL_PesterResult = Invoke-Pester $script:s_PesterTestFilePath -PassThru
 
-    Write-Host "Sub Script executed successfully: $script:s_PesterTestFilePath" -ForegroundColor Green
+    Write-Host "Sub Script executed: $script:s_PesterTestFilePath" -ForegroundColor Green
 }
 catch {
     Write-Error "Execution error: $_"
@@ -108,7 +110,7 @@ catch {
 #-----------------------------------------------------------------------------------------------------------
 if ($Global:GBL_PesterResult.Result -eq "Passed") {
     Write-Host "Pester Passed. Promote code to Production."
-    Write-Host "Promote Release folder to production."
+    Write-Host "Ready to promote code to production."
     Write-Host "`nData Report: $Global:GBL_DataReportCSV"
 } else {
     Write-Host "Failed validation. Stopping program. Writing report to:"
@@ -118,17 +120,25 @@ if ($Global:GBL_PesterResult.Result -eq "Passed") {
 #-----------------------------------------------------------------------------------------------------------
 # EXPORT TEST RESULTS TO CSV
 #-----------------------------------------------------------------------------------------------------------
+try{
 $Global:GBL_PesterResult.Tests | ForEach-Object {
     [PSCustomObject]@{
         CallerScript = "fn_CreateSequentialFilesCheck.tests.ps1"
         TestName     = $_.Name
         Result       = $_.Result
         ExecutedAt   = $_.ExecutedAt
-        Passed       = $_.Passed
+        Status       = $_.Passed
         Skipped      = $_.Skipped
         Duration     = $_.Duration
     }
 } | Export-Csv -Path $Global:GBL_DataReportCSV -NoTypeInformation -Append
+}
+catch {
+    # Throw $_
+    $out_message="####################################################################################Error: Report file inaccessible. File may be open.########################################"
+    Throw $out_message
+
+} # End of Try catch $Global:GBL_PesterResult.Tests
 
 #-----------------------------------------------------------------------------------------------------------
 # FINALIZE

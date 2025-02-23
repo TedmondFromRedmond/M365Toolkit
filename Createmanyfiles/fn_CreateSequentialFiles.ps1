@@ -9,7 +9,7 @@ function fn_CreateSequentialFiles {
     .DESCRIPTION
         This function generates a user-defined number of empty text files.
         The files will be named sequentially from File1.txt to FileX.txt.
-        It ensures the specified directory exists before creating the files.
+        It ensures the specified directory exists before creating the files and if not, then it creates the directory.
     
     .PARAMETER p_DirectoryPath
         The directory where the files will be created. If not specified, the files will be created in the current directory.
@@ -18,14 +18,14 @@ function fn_CreateSequentialFiles {
         The number of files to create. Must be greater than zero.
     
     .EXAMPLE
-        fn_CreateSequentialFiles -p_DirectoryPath "C:\MyFiles" -p_FileCount 50
+        fn_CreateSequentialFiles -p_DirectoryPath "C:\Temp\PesterCreateManyFiles" -p_FileCount 101
     
     .NOTES
         Author: TedmondFromRedmond
     #>
     
     param (
-            [string]$p_DirectoryPath = ".",
+            [string]$p_DirectoryPath,
             [int]$p_FileCount
         )
     
@@ -50,7 +50,7 @@ function fn_CreateSequentialFiles {
         }
     
         Write-Host "Successfully created $p_FileCount files in '$p_DirectoryPath'."
-        return "File creation completed."
+        return "Success."
     }
     #--------------------------------------------------------------
     

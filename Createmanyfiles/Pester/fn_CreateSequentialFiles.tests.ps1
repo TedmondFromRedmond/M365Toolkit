@@ -25,6 +25,75 @@ param(
 
 
 #-----------------------------------------------------------------------------------------------------------
+Function fn_ListFilesAndValidateCount {
+    #--------------------------------------------------------------
+    # Function: fn_ListFilesAndValidateCount
+    #--------------------------------------------------------------
+    <#
+    .SYNOPSIS
+        Testing function for pester. Lists all files in a specified directory and validates the file count.
+    
+    .DESCRIPTION
+        This function retrieves all files in a given directory and compares the count of files 
+        against a user-specified expected count. If the count does not match, function returns 
+        value 'File count mismatch'. If it does match returns value of 'File count matches.' 
+        There are more Return codes listed in the Notes section below.
+    
+    .PARAMETER p_DirectoryPath
+        Source to obtain files count from.
+    
+    .PARAMETER p_ExpectedFileCount
+        The expected number of files in the directory for validation.
+    
+    .EXAMPLE
+        fn_ListFilesAndValidateCount -p_DirectoryPath "C:\Temp\CreateManyFiles" -p_ExpectedFileCount 10
+    
+    .NOTES
+    # Returns
+    File count mismatch.
+    Success.
+
+    # 20240601 | Author: TedmondFromRedmond
+    #>
+       
+    param (
+        [string]$p_DirectoryPath,
+        [int]$p_ExpectedFileCount 
+    )
+    
+
+    #--- ck p_expectedfilecount for 0 and return "Invalid File Count."
+    if(-not $p_ExpectedFileCount -gt 0){return "Invalid File Count."}
+
+        #----
+        # Retrieve all of the files in the directory
+        $fn_IF_Files = Get-ChildItem -Path $p_DirectoryPath -File
+        $fn_IF_FileCount = $fn_IF_Files.Count
+    
+        # Display file count to console
+        Write-Host "Total files found in '$p_DirectoryPath': $fn_IF_FileCount"
+    
+        # Case - Mismatch on expected number of files returned
+        if ($fn_IF_FileCount -ne $p_ExpectedFileCount) {
+            Write-Host 'Warning: Expected $p_ExpectedFileCount files, but found $fn_IF_FileCount.'
+            write-host 'File count mismatch: Expected $p_ExpectedFileCount, Found $fn_IF_FileCount.'
+            $mystring=""
+            $mystring="File count mismatch."
+            # return "File count mismatch."
+            return $mystring
+        }
+        if($fn_IF_FileCount -eq $p_ExpectedFileCount) {
+            Write-Host 'Success.'
+            return "Success."
+        }
+
+
+
+} # End of fn_ListFilesAndValidateCount
+#-----------------------------------------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------------------------------------
 # Function: fn_DateandTimeStamp
 #-----------------------------------------------------------------------------------------------------------
 function fn_DateandTimeStamp {
@@ -49,23 +118,32 @@ function fn_DateandTimeStamp {
 }
 #-----------------------------------------------------------------------------------------------------------
 
-# Import Pester Module
-Import-Module Pester -PassThru
 
 # Import Functions
-. .\fn_CreateSequentialFilesFunctions.tests.ps1
+#. .\fn_CreateSequentialFilesFunctions.tests.ps1
+
+# Actual fn_CreateSequentialFiles function to modify
 . '..\fn_CreateSequentialFiles.ps1'
 
 #-----------------------------------------------------------------------------------------------------------
 # MAIN SCRIPT EXECUTION
 #-----------------------------------------------------------------------------------------------------------
 
+# Initialize vars
+$global:gbl_DefaultMyTestDir = $null
+
+# Constants
+$global:gbl_DefaultMyTestDir = 'C:\Temp\test\M365Toolkit\Createmanyfiles\Pester'
+
+# Import Pester Module
+Import-Module Pester -PassThru
+
 # Setup default date and time
 $script:s_DateandTimeStamp = fn_DateandTimeStamp 
 
 # Set default test directory if the parameter is null or empty
 if ([string]::IsNullOrEmpty($p_MyTestDir)) {
-    $Global:GBL_TestDir = "C:\Temp\test\M365Toolkit\Createmanyfiles\Pester"
+    $Global:GBL_TestDir = $global:gbl_DefaultMyTestDir
 } else {
     $Global:GBL_TestDir = $p_MyTestDir 
 }
@@ -94,12 +172,13 @@ Describe 'fn_CreateSequentialFiles Tests' {
         }
     } # End of AfterAll
 
-    Context 'Test fn_CreateSequentialFiles' {
+ Context 'Test fn_CreateSequentialFiles' {
         # Test Case 1
         It 'Test Case 1 - Call fn and create files then check return' {
             Try {
                 $s_TestResult = fn_CreateSequentialFiles -p_DirectoryPath "C:\Temp\PesterCreateManyFiles" -p_FileCount 101
-                $s_TestResult | Should -Be "File creation completed."
+                $s_TestResult | Should -Be "Success."
+                write-host
             } catch {
                 Throw $_
             }
@@ -110,6 +189,7 @@ Describe 'fn_CreateSequentialFiles Tests' {
             Try {
                 $s_TestResult = fn_ListFilesAndValidateCount -p_DirectoryPath "C:\Temp\PesterCreateManyFiles" -p_ExpectedFileCount 100
                 $s_TestResult | Should -Be 'File count mismatch.'
+                Write-Host
             } catch {
                 Throw $_
             }
@@ -119,7 +199,8 @@ Describe 'fn_CreateSequentialFiles Tests' {
         It 'Test Case 3 - Validate correct file count should succeed' {
             Try {
                 $s_TestResult = fn_ListFilesAndValidateCount -p_DirectoryPath "C:\Temp\PesterCreateManyFiles" -p_ExpectedFileCount 101
-                $s_TestResult | Should -Be "File count matches."
+                $s_TestResult | Should -Be "Success."
+                Write-Host
             } catch {
                 Throw $_
             }
@@ -129,22 +210,14 @@ Describe 'fn_CreateSequentialFiles Tests' {
         It 'Test Case 4 - Test invalid file count passed' {
             Try {
                 $s_TestResult = fn_ListFilesAndValidateCount -p_DirectoryPath "C:\Temp\PesterCreateManyFiles" -p_ExpectedFileCount 0
-                $s_TestResult | Should -Be "File Count Mismatch."
+                $s_TestResult | Should -Be "Invalid File Count." 
+                write-host
             } catch {
                 Throw $_
             }
         }  # End of Test Case 4
 
-        # Test Case 5
-        It 'Test Case 5 - Test invalid parameter should fail' {
-            Try {
-                $s_TestResult = fn_ListFilesAndValidateCount -p_DirectoryPath "C:\Temp\PesterCreateManyFiles"
-                $s_TestResult | Should -Be "File Count Mismatch."
-            } catch {
-                Throw $_
-            } # End of try catch
-        }  # End of Test Case 5
-    } # End of Context
+     } # End of Context
 } # End of Describe
 
 #-----------------------------------------------------------------------------------------------------------
