@@ -1,0 +1,30 @@
+{
+  "Framework": {
+    "Version": "1.0.0",
+    "DefaultTimeoutSeconds": 30,
+    "DefaultDelayMilliseconds": 50
+  },
+  "Reporting": {
+    "OutputDirectory": "C:\\temp\\UITestResults",
+    "GenerateHtml": true,
+    "GenerateJson": true,
+    "GenerateCsv": true,
+    "IncludeScreenshots": true
+  },
+  "TestDefaults": {
+    "WaitSecondsAfterProcessStart": 3,
+    "WaitSecondsAfterKeyStrokes": 1,
+    "RetryAttempts": 3,
+    "RetryDelaySeconds": 2
+  },
+  "SendKeys": {
+    "KeyDelayMilliseconds": 50,
+    "UseNativeSendInput": true,
+    "SpecialKeyMap": {
+      "ENTER": "{Enter}",
+      "TAB": "{Tab}",
+      "SPACE": " ",
+      "ESC": "{Escape}"
+    }
+  }
+} 
