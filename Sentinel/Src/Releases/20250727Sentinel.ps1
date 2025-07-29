@@ -1,0 +1,765 @@
+<#
+.SYNOPSIS
+    In essence, the term "sentinel" in computer science refers to a marker or 
+    a signal that indicates a specific state, boundary, or termination condition. 
+
+.DESCRIPTION
+    Splits and merges data input to the textbox via a specified sentinel such as commas, semicolons and custom sentinels if necessary.    
+    Practical examples are:
+        - Splitting comma separated values into columnar separated data so one can paste into Excel.
+        - Taking a list of emails in multiple rows of excel in a column such as email addresses
+          and creating a comma separated list for emails that can be copied and pasted in the To line of an email.
+    For AI Testing, refer to the Testing.pdf for files and how to.
+
+.NOTES
+    Author: 2023-09-12 TFR - TedmondFromRedmond https://www.github.com/TedmondFromRedmond
+    Note: Special credit is given to dtammam, Dean Tammam. https://github.com/dtammam/
+    2024-05-27 - TFR Updated script to work with hotkeys such as Alt+C for Comma separated, Alt+S for Semicolons; Alt+A for Apply, Alt+X for Exit 
+    2024-05-27 - TFR Updated script to not add a zero length value and removed extraneous sentinels if necessary; moved buttons and checkboxes to left of screen
+    2024-05-28 - TFR added custom values on form; added hotkeys with alt button accessible in upper and lowercase;
+               - moved buttons to top of form ; tested and remediated incorrect operator input and selection of semicolons, commas, custom 
+    2025-07-18 - TFR added Reset button, Merge checkbox, removed function call due to variable scripting and wrapped form in custom object for extendability.
+               - Added Help button
+               - It is possible for one to use the custom object named $ui as a parm when calling a function or script.
+               - Rebranded Tool name as Sentinel. The tool functionality matches the Computer Science definition of Sentinel.
+               - Added zero check for lines in textbox
+               - Added split for 1 or many lines
+               - Added validation for 1 or more lines for merge 
+               - Removed fall thru logic in Apply click
+               - Added excel testing  spreadsheet for future modifications to work. 20+ testing items.
+               - Added check for just returns in textbox to error out and inform operator
+               - Tested keyboard input with ampersands and alt key combinations
+               - Corrected tabstops with order of execution. Future mods may modify property after object is created.
+               - Created excel testing sheet.
+    #>
+
+
+#--------------------------------
+
+#--- params
+param (
+    [bool]$DevMode
+)
+
+
+#--- End of params
+####################################
+# Functions begin
+#########
+
+
+#---
+# Simulated CheckBox (mimics .Checked property)
+#----
+
+function fn_New-MockCheckBox {
+<#
+.SYNOPSIS
+    Creates a mock checkbox object with a 'Checked' property for testing UI logic.
+
+.DESCRIPTION
+    This mock is used during DevMode to simulate real checkbox behavior in the Sentinel tool.
+    It returns a [PSCustomObject] with a `.Checked` property reflecting the test case.
+
+.EXAMPLE
+    fn_New-MockCheckBox -checked $true
+#>
+    param([bool]$checked)
+    return [PSCustomObject]@{ Checked = $checked }
+}
+#----
+
+
+#---
+function fn_Invoke-SentinelApplyTransformation {
+    <#
+.SYNOPSIS
+    Processes the Sentinel UI inputs to either split or merge content using a user-defined or checkbox-selected delimiter.
+
+.DESCRIPTION
+    This function is invoked when the Apply button is clicked (or called from Dev Mode). 
+    It performs validation on the form state, processes the input text box content,
+    and either splits or merges the text based on the mode selected.
+    The result is copied to the clipboard, and the operator is notified.
+
+.PARAMETER ui
+    The UI object containing all form controls including the TextBox, checkboxes, and buttons.
+
+.PARAMETER DevMode
+    Optional switch that enables non-UI testing mode (e.g. from scripts).
+
+.EXAMPLE
+    fn_Sentinel-ApplyTransformation -ui $ui
+
+.EXAMPLE
+    fn_Sentinel-ApplyTransformation -ui $ui -DevMode
+
+.NOTES
+    Author: Professor PowerShell
+    Created: 2025-07-18
+    POSH Standards enforced: Yes
+#>
+
+    param (
+        [Parameter(Mandatory)]
+        $ui
+    )
+
+
+######################################################################################################################################
+# Apply Button
+# When clicked determines if split, merge.
+
+    #------------------------------------------
+    # Initialize variables
+    #------------------------------------------
+    $fn_delimiter        = $null
+    $fn_escapedDelimiter = $null
+    $fn_filteredLines    = $null
+    $fn_lines            = $null
+    $fn_merged           = $null
+    $fn_rawValues        = $null
+    #------------------------------------------
+
+    # Avoid race condition of multiple clicks or keyboard
+    start-sleep -Milliseconds 200
+
+
+    # Validate only one sentinel is checked
+    $myReturn = $null
+    $myReturn = fn_ValidateSingleDelimiterChoice -CommaBox $ui.commaCheckbox -SemicolonBox $ui.semicolonCheckbox -CustomBox $ui.customDelimiterTextBox
+    if ($myReturn -eq $false){
+        Return -1
+    } # end of if myreturn $false
+
+
+    # Validate form boxws are filled out.
+    # If not, fall thru and let the if not fn_delimiter..
+  
+    $fn_delimiter = if ($ui.CommaCheckbox.Checked) {
+        ","
+    } elseif ($ui.SemicolonCheckbox.Checked) {
+        ";"
+    } elseif ($ui.CustomDelimiterTextBox.Text.Length -gt 0) {
+        $ui.CustomDelimiterTextBox.Text
+        $myoutmsg = "Source: fn_Invoke-SentinelApplyTransformation Custom Delimiter Found. " + $ui.CustomDelimiterTextBox.Text
+        fn_LogThatMessage $myoutmsg -pLogLevel Info
+
+    } else {
+        $null
+    } # End of fn_delimiter
+
+    # Escape the delimiter for regex safety
+    $fn_escapedDelimiter = [regex]::Escape($fn_delimiter)
+
+
+
+    # Validate delimiter
+    if (-not $fn_delimiter) {
+        # [System.Windows.Forms.MessageBox]::Show("Please select a delimiter: Commas, Semicolons, or enter a Custom sentinel.")
+        $myOutMsg = "Please select a delimiter: Commas, Semicolons, or enter a Custom sentinel."
+        fn_ShowTemporaryMessage -p_Message $myOutMsg  -p_Interval 3000
+        $myOutMsg = "Source: fn_Invoke-SentinelApplyTransformation Please select a delimiter: Commas, Semicolons, or enter a Custom sentinel."
+        fn_LogThatMessage -pOutMessage $myOutMsg -ploglevel Error
+
+        return -1
+    }
+
+    # Validate text box does not contain just returns with white space
+    if ([string]::IsNullOrWhiteSpace($ui.TextBox.Text.Trim())) {
+        # [System.Windows.Forms.MessageBox]::Show("Textbox is empty or contains only whitespace or returns.")
+        $myOutMsg = "Textbox is empty or contains only whitespace or returns."        
+        fn_ShowTemporaryMessage -p_Message $myOutMsg -p_Interval 3000
+        
+        $myOutMsg = "Source: fn_Invoke-SentinelApplyTransformation Textbox is empty or contains only whitespace or returns."        
+        fn_LogThatMessage -pOutMessage $myOutMsg -ploglevel Error
+
+
+        return -1
+    }
+    
+
+    # Validate text box is not empty
+    # if ui.textbox does not have any lines, nothing can happen
+    if ($ui.TextBox.Lines.Count -eq 0) {
+        # Write-Host "Textbox contains zero lines"
+        # [System.Windows.Forms.MessageBox]::Show("TextBox contains ZERO lines. Please enter text.")
+        $myOutMsg = "TextBox contains ZERO lines. Please enter text."
+        fn_ShowTemporaryMessage -p_Message $myoutmsg -p_Interval 3000
+        $myOutMsg = "Source: fn_Invoke-SentinelApplyTransformation TextBox contains ZERO lines. Please enter text."
+        fn_LogThatMessage -pOutMessage $myOutMsg -ploglevel Error
+
+        Return -1
+    }
+
+
+
+    #------ Split and Merge Mode
+    # Split Mode
+    if ($ui.SplitCheckbox.Checked) {
+        # fn_LogThatMessage -pOutMessage "Entering splitmode after setting form to ui object." -ploglevel Info
+
+        $fn_rawValues = $ui.TextBox.Text -split $fn_escapedDelimiter
+        $fn_filteredLines = $fn_rawValues | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -gt 0 }
+
+        Set-Clipboard -Value ($fn_filteredLines -join "`r`n")
+        Start-Sleep -Milliseconds 200
+        fn_ShowTemporaryMessage -p_Message "Copied line by line to clipboard." -p_Interval 2000
+        
+        $myOutMsg2 = "Source: fn_invoke-sentinelApplyTransformation - Split mode success"
+        fn_LogThatMessage -pOutMessage $myOutMsg2 -ploglevel Info
+        
+        return 0
+        
+    } # End of Split Mode
+
+    
+    
+    # Merge Mode
+    if ($ui.MergeCheckbox.Checked) {
+
+        # Validate Merge Mode and if not validated, display err msg. to operator
+        if ($ui.TextBox.Lines.Count -eq 1) {
+            # Write-Host "Textbox has a single line."
+            # [System.Windows.Forms.MessageBox]::Show("Merge requires two or more lines. Merge is performed on a line by line basis.")
+            $myOutMsg = "Merge - Merge requires two or more lines. Merge is performed on a line by line basis."
+            fn_ShowTemporaryMessage -p_Message $myOutMsg -p_Interval 3000
+            $myOutMsg = "Source: fn_Invoke-SentinelApplyTransformation Merge - Merge requires two or more lines. Merge is performed on a line by line basis."
+            fn_LogThatMessage -pOutMessage $myOutMsg -ploglevel Error
+            fn_LogThatMessage -pOutMessage "Returning -1" -ploglevel Error
+
+            Return -1
+        }
+
+
+        $fn_lines = $ui.TextBox.Text -split "`r`n"
+        $fn_filteredLines = $fn_lines | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -gt 0 }
+        $fn_merged = $fn_filteredLines -join $fn_delimiter
+        Start-Sleep -Milliseconds 200 # Race conditions
+        Set-Clipboard -Value $fn_merged
+        Start-Sleep -Milliseconds 200 # Race conditions
+        # [System.Windows.Forms.MessageBox]::Show("Professor POSH says Thank You and your Text was concatenated and copied to clipboard!")
+        $myOutMsg = "Merge - Lines were merged and copied to clipboard."
+        fn_ShowTemporaryMessage -p_Message $myOutMsg  -p_Interval 2000
+        $myOutMsg = "Source: fn_invoke-sentinelApplyTransformation -  if ui.MergeCheckbox.Checked. Successful. " + $myOutMsg
+        fn_LogThatMessage -pOutMessage $myOutMsg -ploglevel Info
+        fn_LogThatMessage -pOutMessage "Returning 0" -ploglevel Info
+
+        Return 0
+    } # end of Merge Mode
+
+
+
+# End of if $ui.applybutton.add_click
+############################################################
+
+} # End of fn_Sentinel-ApplyTransformation
+#---
+
+
+#----
+function fn_ValidateSingleDelimiterChoice {
+    <#
+    .SYNOPSIS
+        Validates that only one delimiter transformation option is selected.
+    
+    .DESCRIPTION
+        Ensures mutual exclusivity among the comma checkbox, semicolon checkbox, and custom delimiter textbox. 
+        If more than one is selected or filled, it notifies the operator using a message box.
+    
+    .EXAMPLE
+        fn_ValidateSingleDelimiterChoice -CommaBox $ui.commaCheckbox -SemicolonBox $ui.semicolonCheckbox -CustomBox $ui.customDelimiterTextBox
+
+    .NOTES
+    Author: Professor PowerShell
+    Created: 2025-07-18
+    #>
+        param (
+            [Parameter(Mandatory=$true)]
+            [System.Windows.Forms.CheckBox] $CommaBox,
+    
+            [Parameter(Mandatory=$true)]
+            [System.Windows.Forms.CheckBox] $SemicolonBox,
+    
+            [Parameter(Mandatory=$true)]
+            [System.Windows.Forms.TextBox] $CustomBox
+        )
+  
+        # add when verbose is added to fn_LogThatMessage
+        # fn_LogThatMessage -pOutMessage "fn_ValidateSingleDelimiterChoice started" -ploglevel Info
+
+        # Count how many of the options are active/selected
+        # $fn_IF_SelectedCount is iterated and then checked. 
+        $fn_IF_SelectedCount = 0
+        if ($CommaBox.Checked)     { $fn_IF_SelectedCount++ }
+        if ($SemicolonBox.Checked) { $fn_IF_SelectedCount++ }
+        if (-not [string]::IsNullOrWhiteSpace($CustomBox.Text)) { $fn_IF_SelectedCount++ }
+    
+        # More than one selected? Notify operator
+        if ($fn_IF_SelectedCount -gt 1) {
+            $myErrorout = "Only ONE of the following can be selected or filled: Comma, Semicolon, or Custom Delimiter.`nPlease adjust your selections."
+            # [void][System.Windows.Forms.MessageBox]::Show("$myErrorout", "Invalid Configuration", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+            fn_ShowTemporaryMessage -p_Message $myErrorout -p_Interval 3000
+            
+            $myErrorout = "Source: fn_ValidateSingleDelimiterChoice Only ONE of the following can be selected or filled: Comma, Semicolon, or Custom Delimiter.`nPlease adjust your selections."
+            fn_LogThatMessage -pOutMessage $myErrorout -ploglevel Error
+
+            start-sleep -Milliseconds 200
+
+            # Set clipboard value to error for operator in case they stop reading the screen or are multitasking and miss the msg.
+            Set-Clipboard -Value ("Source: fn_ValidateSingleDelimiterChoice - $myerrorout ")
+
+            return $false
+        }
+    
+        # Add back when verbose logging feature is added.
+        # fn_LogThatMessage -pOutMessage "fn_ValidateSingleDelimiterChoice: End of" -ploglevel Info
+
+        return $true
+    }
+    # End of fn_ValidateSingleDelimiterChoice
+    #----
+
+#---- fn_ShowTemporaryMessage Start ----
+function fn_ShowTemporaryMessage {
+    <#
+    .SYNOPSIS
+    Displays a temporary message window for a specified duration.
+
+    .DESCRIPTION
+    This function uses System.Windows.Forms to show a non-blocking, topmost message window 
+    that disappears automatically after a given time interval.
+
+    .PARAMETER p_Message
+    The message text to display in the form.
+
+    .PARAMETER p_Interval
+    The duration (in milliseconds) the message window should be visible.
+
+    .EXAMPLE
+    fn_ShowTemporaryMessage -p_Message "Task Completed Successfully" -p_Interval 3000
+    #>
+
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$p_Message,
+
+        [Parameter(Mandatory = $true)]
+        [int]$p_Interval
+    )
+
+    # fn_LogThatMessage -pOutMessage "fn_ShowTemporaryMessage started" -ploglevel Info
+    
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+
+    $fn_IF_tempForm         = New-Object System.Windows.Forms.Form
+    $fn_IF_tempForm.Text    = ""
+    $fn_IF_tempForm.Size    = New-Object System.Drawing.Size(500, 100)
+    $fn_IF_tempForm.StartPosition = "CenterScreen"
+    $fn_IF_tempForm.FormBorderStyle = 'FixedDialog'
+    $fn_IF_tempForm.TopMost = $true
+    $fn_IF_tempForm.ControlBox = $false
+
+    $fn_IF_label               = New-Object System.Windows.Forms.Label
+    $fn_IF_label.Text          = $p_Message
+    $fn_IF_label.Dock          = 'Fill'
+    $fn_IF_label.TextAlign     = 'MiddleCenter'
+    $fn_IF_label.Font          = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+    $fn_IF_tempForm.Controls.Add($fn_IF_label)
+
+    # Timer to close the form
+    $fn_IF_timer              = New-Object System.Windows.Forms.Timer
+    $fn_IF_timer.Interval     = $p_Interval
+    $fn_IF_timer.add_Tick({
+        $fn_IF_timer.Stop()
+        $fn_IF_tempForm.Close()
+    })
+    $fn_IF_timer.Start()
+
+    $null = $fn_IF_tempForm.ShowDialog()
+
+    # fn_LogThatMessage -pOutMessage "fn_ShowTemporaryMessage Ended" -ploglevel Info
+
+} # End of fn_ShowTemporaryMessage
+
+#---- fn_ShowTemporaryMessage End ----
+
+#--- begin fn_LogThatMessage
+function fn_LogThatMessage {
+    <#
+    .SYNOPSIS
+        Logs a structured message to a CSV file in CSV format in the directory the script is executing in.
+
+    .DESCRIPTION
+        Chcks global variables to determine whether to execute or not.
+        Use gbl_LogtoFileMode = $true if you want to call the function once as the var is reset at end of function.
+        Use gbl_Devmode = $true to log everything
+        Writes log entries to LogSentinel.csv in the format:
+        Date and Time(105) format, Level, Message
+
+    .PARAMETER pOutMessage
+        The message to log (required).
+
+    .PARAMETER pLogLevel
+        The severity level: Info, Warning, or Error (required).
+
+    .Example    
+        Sequence to call function with global vars:
+        
+        To write once while not in Devmode
+        1. gbl_LogtoFileMode = $true
+        2. fn_LogThatMessage -pOutMessage "Started" -ploglevel Info
+        3. Note: gbl_LogtoFileMode = $false is hardcoded at end of function every time.
+
+        To write while in Devmode
+        1. Call script with Devmode parm. This sets gbldevmode to true.
+        2. fn_LogThatMessage -pOutMessage "Started" -ploglevel Info
+        3. Hardcode at end of function sets gbl_LogtoFileMode = $false
+        4. Note: gbl_Devmode = $true or false depending upon when the function was called with gbl_Devmode is unchanged
+  
+    .NOTES
+        Author: TFR
+        Format uses Get-Date -Format 'dd-MM-yyyy HH:mm:ss'
+        Output file: LogSentinel.csv in script root
+        Will only execute if either $gbl_Devmode or $gbl_LogtoFileMode is $true
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$pOutMessage,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Info", "Warning", "Error")]
+        [string]$pLogLevel
+    )
+
+    # Exit early if neither dev mode nor log-to-file mode is enabled
+    if (-not ($global:gbl_Devmode -or $global:gbl_LogtoFileMode)) {
+        return
+    }
+
+    # Define log file path to where the script is executing from.
+    $fn_LogFilePath = Join-Path -Path $PSScriptRoot -ChildPath "LogSentinel.csv"
+
+    # Prepare structured log row
+    $fn_LogRow = [PSCustomObject]@{
+        'Date and Time' = Get-Date -Format 'dd-MM-yyyy HH:mm:ss'
+        'Level'         = $pLogLevel
+        'Message'       = $pOutMessage
+    }
+
+    # if log file is found, append csv log file, if not start the csv logfile with headers.
+    if (-not (Test-Path -Path $fn_LogFilePath)) {
+        $fn_LogRow | Export-Csv -Path $fn_LogFilePath -NoTypeInformation
+    } else {
+        $fn_LogRow | Export-Csv -Path $fn_LogFilePath -Append -NoTypeInformation
+    }
+
+
+    # Reset $gbl_LogtoFileMode to false due to fall thru logic
+    $gbl_LogtoFileMode = $false 
+}
+#--- End fn_LogThatMessage
+
+
+#########
+# End of Functions
+####################################
+
+###############################################################################################
+# MAIN
+###############################################################################################
+# Sometimes forms can have the same name as form and be in memory.
+# Clear out form variable so as not to conflict with other programs
+
+$form=$null
+
+
+# Setup script vars
+$gbl_Devmode = $null
+$gblLogtoFileMode = $null
+
+$gbl_Devmode = $DevMode
+$gblLogtoFileMode = $false
+
+
+
+#####################
+# Overrides begin here
+# $gbl_Devmode = $true  
+# $gblLogtoFileMode =$true
+
+# Overrides End here
+#####################
+
+# Load necessary assemblies
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# Log start message
+fn_LogThatMessage -pOutMessage "Started Script" -ploglevel Info
+# Write-Host
+
+# >>>>>>>>>>>>>>>>>>>
+# Create form
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Welcome to the Sentinel Tool - 2025v300"
+$form.Size = New-Object System.Drawing.Size(600, 500)
+$form.StartPosition = "CenterScreen"
+
+# Add keypreview method
+$form.KeyPreview = $true  # Ensure the form receives key events before the focused control
+
+
+# Merge checkbox
+$mergeCheckbox = New-Object System.Windows.Forms.CheckBox
+$mergeCheckbox.Text = "&Merge"
+$mergeCheckbox.Location = New-Object System.Drawing.Point(15, -5)  # Adjusted to sit above Commas
+$form.Controls.Add($mergeCheckbox)
+
+
+# Create Split checkbox (default: unchecked)
+$splitCheckbox = New-Object System.Windows.Forms.CheckBox
+$splitCheckbox.Text = "S&plit"
+$splitCheckbox.Location = New-Object System.Drawing.Point(119, -5)  # Aligned to right of Merge
+$form.Controls.Add($splitCheckbox)
+
+
+# Help Button and modal dialogue
+$btnHelpButton = New-Object System.Windows.Forms.Button
+$btnHelpButton.Size = New-Object System.Drawing.Size(75, 20)
+$btnHelpButton.Text = "&Help"
+$btnHelpButton.Location = New-Object System.Drawing.Point(500, -5)
+$btnHelpButton.Add_Click({
+    # [System.Windows.Forms.MessageBox]::Show("https://github.com/TedmondFromRedmond - Repo M365")
+    start-sleep -Milliseconds 200
+    $myOutMsg = "https://github.com/TedmondFromRedmond/M365Toolkit"
+    fn_ShowTemporaryMessage -p_Message $myOutMsg -p_Interval 3000
+    fn_LogThatMessage -pOutMessage "Help button pushed" + $myOutMsg -ploglevel Info
+    start-sleep -Milliseconds 200
+
+    return 0
+
+                        }) # End of btnHelpButton.Add_Click
+
+
+$form.Controls.Add($btnHelpButton)
+
+# Comma checkbox
+$commaCheckbox = New-Object System.Windows.Forms.CheckBox
+$commaCheckbox.Text = "&Commas"
+$commaCheckbox.Location = New-Object System.Drawing.Point(15, 15)
+$form.Controls.Add($commaCheckbox)
+
+# Semicolons checkbox
+$semicolonCheckbox = New-Object System.Windows.Forms.CheckBox
+$semicolonCheckbox.Text = "&Semicolons"
+$semicolonCheckbox.Location = New-Object System.Drawing.Point(119, 15)
+$form.Controls.Add($semicolonCheckbox)
+
+# Add "Custom" label to the left of theCustomdelimiter text box
+$customLabel = New-Object System.Windows.Forms.Label
+$customLabel.Text = "C&ustom"
+$customLabel.Location = New-Object System.Drawing.Point(220, 20)
+$customLabel.AutoSize = $true
+$form.Controls.Add($customLabel)
+
+# Add Custom textbox
+$customDelimiterTextBox = New-Object System.Windows.Forms.TextBox
+$customDelimiterTextBox.Size = New-Object System.Drawing.Size(50, 20)
+$customDelimiterTextBox.Location = New-Object System.Drawing.Point(280, 20)
+$form.Controls.Add($customDelimiterTextBox)
+
+# Add Apply button
+$applyButton = New-Object System.Windows.Forms.Button
+$applyButton.Text = "&Apply"
+$applyButton.Location = New-Object System.Drawing.Point(340, 15)
+# << DO NOT add the .Add_Click block here because it needs to be part of the custom object first
+# otherwise, weird things happen due to differences in .net and powershell
+$form.Controls.Add($applyButton)
+
+
+# Add Reset button
+$btnFormReset = New-Object System.Windows.Forms.Button
+$btnFormReset.Text = "&Reset"  # Alt+R enabled via ampersand
+$btnFormReset.Location = New-Object System.Drawing.Point(420, 15)
+$form.Controls.Add($btnFormReset)
+
+$btnFormReset.Add_Click({
+    fn_LogThatMessage -pOutMessage "Source: btnFormReset.Add_Click Start" -ploglevel Info
+
+    start-sleep -Milliseconds 200
+    $ui.MergeCheckbox.Checked          = $false
+    $ui.SplitCheckbox.Checked          = $true
+    $ui.CommaCheckbox.Checked          = $false
+    $ui.SemicolonCheckbox.Checked      = $false
+    $ui.CustomDelimiterTextBox.Text    = ""
+    $ui.TextBox.Clear()
+    start-sleep -Milliseconds 200
+    $ui.TextBox.Focus()
+
+    fn_LogThatMessage -pOutMessage "Source: btnFormReset.Add_Click Ending" -ploglevel Info
+
+}) # End of btnFormReset.Add_Click
+
+
+# Add Exit button
+$exitButton = New-Object System.Windows.Forms.Button
+$exitButton.Text = "E&xit"  # The & character enables the Alt+X shortcut
+$exitButton.Location = New-Object System.Drawing.Point(500, 15)
+$exitButton.Add_Click({ $form.Close() })
+$form.Controls.Add($exitButton)
+
+
+# Create a multiline textbox
+$textbox = New-Object System.Windows.Forms.TextBox
+$textbox.Multiline = $true
+$textbox.Size = New-Object System.Drawing.Size(550, 400)
+$textbox.Location = New-Object System.Drawing.Point(15, 50)
+$form.Controls.Add($textbox)
+
+#---
+# Due to powershell limitations, use custom object to 
+# wrap form so peoperties can be accessed and events added and accessible in code.
+
+$ui = [PSCustomObject]@{
+    ApplyButton            = $applyButton
+    CommaCheckbox          = $commaCheckbox
+    CustomDelimiterTextBox = $customDelimiterTextBox
+    ExitButton             = $exitButton
+    Form                   = $form
+    MergeCheckbox          = $mergeCheckbox
+    ResetButton            = $btnFormReset
+    SemicolonCheckbox      = $semicolonCheckbox
+    SplitCheckbox          = $splitCheckbox
+    TextBox                = $textbox
+}
+#---
+
+
+# Add split button Add_Click event after custom object
+$ui.splitCheckbox.Add_Click({
+    
+    $ui.commaCheckbox.checkbox = $true
+
+    if ($ui.splitCheckbox.Checked -eq $false) {
+        Start-Sleep -Milliseconds 200
+        $ui.mergeCheckbox.Checked = $true
+        Start-Sleep -Milliseconds 200
+    } else {
+        $ui.mergeCheckbox.Checked = $false
+        Start-Sleep -Milliseconds 200
+    } # end of if/else block
+}) # end of ui.splitCheckbox.Add_Click
+
+
+$ui.mergeCheckbox.Add_Click({
+    Start-Sleep -Milliseconds 200
+    
+    if ($ui.mergeCheckbox.Checked -eq $false) {
+        Start-Sleep -Milliseconds 200
+        $ui.splitCheckbox.Checked = $true
+        Start-Sleep -Milliseconds 200
+    } else {
+        $ui.splitCheckbox.Checked = $false
+        Start-Sleep -Milliseconds 200
+
+    } # end of if/else block
+}) # end of ui.splitCheckbox.Add_Click
+
+
+# Set default for checkbox
+$ui.splitCheckbox.Checked = $true
+
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# Apply button click - where the action happens.
+$ui.ApplyButton.Add_Click({
+
+
+    # Setup UI entities for default
+    start-sleep -Milliseconds 200
+
+    # Call function to apply transformations     
+
+    fn_Invoke-SentinelApplyTransformation -ui $ui
+
+    return 0
+})
+
+#----
+
+    $form.Add_Shown({
+    $textbox.Focus()
+                    }) # end of form.add_shown
+
+
+#<<<<<<<<<<< End of form creation
+
+
+# Enable keyboard shortcuts for Apply, Exit, and checkboxes
+$form.KeyPreview = $true
+
+$form.Add_KeyDown({
+    param ($sender, $e)
+    if ($e.Modifiers -eq [System.Windows.Forms.Keys]::Alt) {
+        switch ($e.KeyCode) {
+
+# The apply and exit buttons are handled in forms by default since the button is associated with a click event and the text includes ampersand
+#            'A' { $applyButton.PerformClick() }
+#            'a' { $applyButton.PerformClick() }
+#            'X' { $exitButton.PerformClick() }
+#            'x' { $exitButton.PerformClick() }
+#            'R' { $btnFormReset.PerformClick() }
+#            'r' { $btnFormReset.PerformClick() }
+
+            # 'C' { $commaCheckbox.Checked = $true } # Commas
+            # 'C' { $commaCheckbox.Checked = -not $commaCheckbox.Checked } # Toggle Commas
+            # 'c' { $commaCheckbox.Checked = $true }
+            # 'c' { $commaCheckbox.Checked = -not $commaCheckbox.Checked } # Toggle Commas
+            # 'c' {
+            #    $commaCheckbox.Checked = -not $commaCheckbox.Checked
+            #    Start-Sleep -Milliseconds 500
+            # }
+            
+
+            # 'M' { $mergeCheckbox.Checked = $true } # Merge
+            # 'm' { $mergeCheckbox.Checked = $true } # Merge
+            # 'm' {$ui.mergeCheckbox.add_click} # Merge
+
+            'm' {
+                $ui.MergeCheckbox.Click
+                Start-Sleep -Milliseconds 200
+             }
+
+            
+            # 'S' { $ui.semicolonCheckbox.Click } # Semicolons
+            # 's' { $ui.semicolonCheckbox.Click = $true }
+            
+            'P' { $ui.splitCheckbox.Click } # Split
+            
+            # 'p' { $splitCheckbox.Checked = $true } # Split
+            'p' { $ui.splitCheckbox.Click } # Split
+
+
+            'T' { $ui.TextBox.Focus() }
+            't' { $ui.TextBox.Focus() }
+        }
+    }
+}) # End of $form.Add_KeyDown({
+
+
+
+# Display the form
+# Check for dev mode and start programmatic testing, else Present the form and execute normally.
+if ($gbl_Devmode) {
+    Write-Host
+    # . .\GeneratedSentinelTestFunctions_FINAL.ps1
+    # . .\GeneratedSentinelTestFunctions_CORRECTED.ps1
+    # . .\GeneratedSentinelTestFunctions_FINAL.ps1
+    . .\GeneratedSentinelTestFunctions_AUTOMATED.ps1
+} else {
+$form.ShowDialog()
+}
+

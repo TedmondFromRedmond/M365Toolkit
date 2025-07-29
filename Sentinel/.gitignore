@@ -1,0 +1,30 @@
+# Python bytecode files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Credential files - NEVER commit these!
+graph_credentials.py
+*_credentials.py
+*.env
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+
+# Dev areas
+Sandbox/
+
+# Local configuration
+*.ini
+config.json 
