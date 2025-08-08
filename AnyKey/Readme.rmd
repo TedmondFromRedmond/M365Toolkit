@@ -3,7 +3,7 @@ Enclosed, you will find a utility that pauses execution and prompts the user wit
 As of July 4th, 2024 Anykey was a 10 year old utility that has morphed over the years and been shared with just about every customer I have worked with.
 
 How to use:
-1. Download the directory
+1. Download
 2. Look at the fn_AnyKey.ps1 file and incorporate to your code as you see fit.
 
 The code is self documenting and one will notice the PowerShell Doctype when viewing. 
