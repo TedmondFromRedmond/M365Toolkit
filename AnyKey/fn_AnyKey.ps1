@@ -1,64 +1,97 @@
-﻿<#
+#---
+<#
 .SYNOPSIS
-Prompts the user to press a key and waits until it is pressed.
+Waits for a single key press and returns detailed key information.
 
 .DESCRIPTION
-fn_AnyKey writes a user-defined or default message to the console, reads a single
-keypress from the host RawUI (in a non-echoing mode), and returns information about
-the key pressed. For example, pressing capital “M” might return something like:
-16,,ShiftPressed,True
+fn_AnyKey displays a message (customizable, with a sensible default),
+waits for a key press, and returns a structured PSCustomObject with
+character, virtual key code, modifier keys, and a timestamp.
 
-.PARAM Message
-Allows the user to specify a custom message to display. If left blank, the default
-message "Press any key to continue ..." is used.
+Supports:
+- Optional timeout (returns a TimedOut flag if exceeded).
+
+.PARAMETER Message
+Custom prompt message. If null/empty/whitespace, defaults to:
+"Press any key to continue..."
+
+.PARAMETER TimeoutSeconds
+Number of seconds to wait before timing out. If not specified, waits indefinitely.
 
 .OUTPUTS
-System.Object
-fn_AnyKey returns an object describing the key press. For instance, 
+[pscustomobject]
+Character, Key, VirtualKey, ShiftPressed, AltPressed, CtrlPressed, Modifiers, Timestamp, TimedOut
 
 .EXAMPLE
-fn_AnyKey -Message 'Press Y to answer yes and N for Nojueno.'
+fn_AnyKey
+# Displays default message and waits indefinitely.
 
 .EXAMPLE
-fn_AnyKey - without a Message parameter defaults to press any key to continue.
-
+fn_AnyKey -Message "Press Y to confirm..." -TimeoutSeconds 200
+# Displays custom message.
 
 .NOTES
 Revision History:
 -----------------
+2025-08-09 | Added default message and timeoutseconds
 2025-02-16 | Added message para-meter to prompt user for input and return output in form of object. Biddy biddy biddy.
 2025-02-12 | Added doctype and changed text to Press Enter to continue
 2015-02-14 | Maker - TedmondFromRedmond
 #>
 Function fn_AnyKey {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
-        [string]$Message
+        [string]$Message,
+        [int]$TimeoutSeconds
     )
 
-    
-    #  map parm to con message
-    if ($Message) {
-        $fn_Message = $Message
-    } else {
-        $fn_Message = "Press any key to continue ..."
-    } # End of if fn_message
+    # Use default message if null/empty/whitespace
+    if ([string]::IsNullOrWhiteSpace($Message)) {
+        $Message = "Press any key to continue..."
+    }
 
-    Write-Host $fn_Message
-    
-    # NOTE: $Host.UI.RawUI.ReadKey() doesn't work in PowerShell ISE.
-    $fn_x = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    
-
-    Return $fn_x
-} # End of fn_anykey
+    Write-Host $Message
 
 
-# Uncomment for Testing
-# Remove function from memory for testing
-# Remove-item Function:\fn_AnyKey -Force
-# $fn_result = fn_AnyKey -fn_message "Press any key to continue ..."
-# write-host "testing..."
-# $fn_result = fn_AnyKey
-# $fn_result = fn_AnyKey -Message "asdfasdfasdf"
+
+    # === Real keypress mode ===
+    if ($PSBoundParameters.ContainsKey('TimeoutSeconds') -and $TimeoutSeconds -gt 0) {
+        $deadline = ((Get-Date)).AddSeconds($TimeoutSeconds)
+        while (-not [Console]::KeyAvailable) {
+            if ((Get-Date) -ge $deadline) {
+                return [pscustomobject]@{
+                    Character     = $null
+                    Key           = $null
+                    VirtualKey    = $null
+                    ShiftPressed  = $false
+                    AltPressed    = $false
+                    CtrlPressed   = $false
+                    Modifiers     = $null
+                    Timestamp     = Get-Date
+                    TimedOut      = $true
+                }
+            }
+            Start-Sleep -Milliseconds 50
+        }
+        $keyInfo = [Console]::ReadKey($true)
+    }
+    else {
+        $keyInfo = [Console]::ReadKey($true)
+    }
+
+    # === Return result object ===
+    return [pscustomobject]@{
+        Character     = $keyInfo.KeyChar
+        Key           = $keyInfo.Key
+        VirtualKey    = [int]$keyInfo.Key
+        ShiftPressed  = $keyInfo.Modifiers.HasFlag([ConsoleModifiers]::Shift)
+        AltPressed    = $keyInfo.Modifiers.HasFlag([ConsoleModifiers]::Alt)
+        CtrlPressed   = $keyInfo.Modifiers.HasFlag([ConsoleModifiers]::Control)
+        Modifiers     = $keyInfo.Modifiers
+        Timestamp     = Get-Date
+        TimedOut      = $false
+    }
+}
+#---
 
