@@ -38,6 +38,7 @@ Revision History:
 2025-02-12 | Added doctype and changed text to Press Enter to continue
 2015-02-14 | Maker - TedmondFromRedmond
 #>
+
 Function fn_AnyKey {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
