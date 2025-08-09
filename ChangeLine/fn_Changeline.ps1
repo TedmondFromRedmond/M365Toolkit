@@ -71,6 +71,7 @@ function fn_ChangeLine {
     Modification History:
     Date       | Initials  | Description
     -----------|-----------|-------------------------------------
+    20250809   | TFR       | Refactored to Professor PowerShell standards
     20250126   | TFR       | Added case sensitivity and special chars `, \, ~, #    
     20231023   | TFR       | Initial creation
     20231112   | P.POSH    | Refactored to align with standards

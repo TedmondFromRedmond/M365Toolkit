@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     In Computer Science, the term "sentinel"  refers to a marker, a delimiter or 
-    a signal that indicates a specific state, boundary, or termination condition. e.g. in a loop one can set a sentineal to contune until a condition is met. 
+    a signal that indicates a specific state, boundary, or termination condition. e.g. in a loop one can set a sentinel to contune until a condition is met. 
 
 .DESCRIPTION
     Splits and merges data input to the textbox via a specified sentinel such as commas, semicolons and custom sentinels if necessary.    
